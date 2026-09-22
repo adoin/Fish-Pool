@@ -293,6 +293,14 @@ export class CanvasPondRenderer implements PondRenderer {
   private height = 1;
   private pixelRatio = 1;
   private ripples: CanvasRipple[] = [];
+  private pebbles: Array<{
+    x: number;
+    y: number;
+    size: number;
+    angle: number;
+    seed: number;
+    kind: number;
+  }> = [];
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const context = canvas.getContext("2d", { alpha: false });
@@ -312,6 +320,19 @@ export class CanvasPondRenderer implements PondRenderer {
   ripple(x: number, y: number, radius: number, strength: number): void {
     this.ripples.push({ x, y, radius, strength, age: 0 });
     if (this.ripples.length > 24) this.ripples.shift();
+  }
+
+  setPebbles(
+    pebbles: readonly {
+      x: number;
+      y: number;
+      size: number;
+      angle: number;
+      seed: number;
+      kind: number;
+    }[],
+  ): void {
+    this.pebbles = pebbles.map((pebble) => ({ ...pebble }));
   }
 
   render(time: number, dt: number, fish: FishState[]): void {
@@ -335,6 +356,22 @@ export class CanvasPondRenderer implements PondRenderer {
       context.stroke();
     }
     context.globalAlpha = 1;
+
+    for (const pebble of this.pebbles) {
+      context.save();
+      context.translate(pebble.x, pebble.y);
+      context.rotate(pebble.angle);
+      context.shadowColor = "rgba(4, 18, 10, 0.38)";
+      context.shadowBlur = Math.max(2, pebble.size * 0.55);
+      context.shadowOffsetX = pebble.size * 0.28;
+      context.shadowOffsetY = pebble.size * 0.35;
+      const lightness = 29 + pebble.kind * 7 + pebble.seed * 8;
+      context.fillStyle = `hsl(68 12% ${lightness}%)`;
+      context.beginPath();
+      context.ellipse(0, 0, pebble.size, pebble.size * (0.68 + pebble.seed * 0.12), 0, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+    }
 
     for (const item of fish) this.drawFish(item, time);
 

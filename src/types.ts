@@ -22,6 +22,27 @@ export interface RippleOptions {
   strength?: number;
 }
 
+export interface PebbleDropOptions {
+  /** Optional CSS-pixel x coordinate. Omit to choose a free area automatically. */
+  x?: number;
+  /** Optional CSS-pixel y coordinate. Omit to choose a free area automatically. */
+  y?: number;
+  /** Settled pebble major radius in CSS pixels. Clamped to 5–11. */
+  size?: number;
+}
+
+export type PebbleState = "airborne" | "sinking" | "settled";
+
+export interface PebbleSnapshot {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  targetSize: number;
+  progress: number;
+  state: PebbleState;
+}
+
 export interface FishPoolStats {
   renderer: "webgl2" | "canvas2d";
   fishCount: number;

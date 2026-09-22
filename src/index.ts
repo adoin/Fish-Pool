@@ -3,6 +3,9 @@ export type {
   FishPoolOptions,
   FishPoolStats,
   FishPoolTarget,
+  PebbleDropOptions,
+  PebbleSnapshot,
+  PebbleState,
   RippleOptions,
 } from "./types";
 

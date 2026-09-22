@@ -3,8 +3,9 @@ import { FishPool } from "../src/index";
 const stage = document.querySelector<HTMLElement>("#pond");
 const rendererLabel = document.querySelector<HTMLElement>("#renderer");
 const countInput = document.querySelector<HTMLInputElement>("#fish-count");
+const pebbleCount = document.querySelector<HTMLElement>("#pebble-count");
 
-if (!stage || !rendererLabel || !countInput) {
+if (!stage || !rendererLabel || !countInput || !pebbleCount) {
   throw new Error("Demo shell is incomplete.");
 }
 
@@ -20,8 +21,17 @@ rendererLabel.textContent = pond.getStats().renderer.toUpperCase();
 countInput.addEventListener("input", () => pond.setFishCount(Number(countInput.value)));
 
 document.querySelector<HTMLButtonElement>("#ripple")?.addEventListener("click", () => {
-  const stats = pond.getStats();
-  pond.addRipple(stats.width * 0.5, stats.height * 0.52, { radius: 42, strength: 1.5 });
+  pond.dropPebble();
 });
+
+function updatePebbleStatus(): void {
+  const pebbles = pond.getPebbles();
+  const active = [...pebbles].reverse().find((pebble) => pebble.state !== "settled");
+  const count = pebbles.length;
+  pebbleCount!.textContent = `${count} ${count === 1 ? "pebble" : "pebbles"}${active ? ` · ${active.state}` : ""}`;
+  requestAnimationFrame(updatePebbleStatus);
+}
+
+updatePebbleStatus();
 
 window.addEventListener("beforeunload", () => pond.destroy());

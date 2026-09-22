@@ -62,7 +62,77 @@ function findFunctionEnd(text, functionStart) {
 }
 
 const simulationEnd = findFunctionEnd(source, simulationStart);
-const rendererCore = source.slice(coreStart, componentStart).replace(/^  /gm, "");
+let rendererCore = source.slice(coreStart, componentStart).replace(/^  /gm, "");
+
+// Extend the original fixed three-stone shader arrays with inactive slots. The
+// slots are still rendered by the original stone shader and composition passes;
+// only their state is new. Keeping this transform in the generator means the
+// generated engine remains reproducible from the extracted upstream module.
+const dynamicPebbleCapacity = 12;
+const stoneListStart = rendererCore.indexOf("  d = [");
+const plantListStart = rendererCore.indexOf("\n  h = [", stoneListStart);
+const stoneListEnd = rendererCore.lastIndexOf("  ],", plantListStart);
+if (stoneListStart < 0 || plantListStart < 0 || stoneListEnd < 0) {
+  throw new Error("Could not locate the original stone definitions.");
+}
+const pebbleSlots = Array.from({ length: dynamicPebbleCapacity }, (_, index) => `    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: ${((index + 1) / (dynamicPebbleCapacity + 1)).toFixed(6)},
+      kind: ${index % 3},
+      dynamic: true,
+    },
+`).join("");
+rendererCore = `${rendererCore.slice(0, stoneListEnd)}${pebbleSlots}${rendererCore.slice(stoneListEnd)}`;
+
+const extensionGuard = 'if (!m || !m.getExtension("EXT_color_buffer_float")) return null;';
+rendererCore = rendererCore.replace(
+  extensionGuard,
+  `${extensionGuard}\n  const fixedStoneCount = 3;\n  const stoneDefinitions = d.map((stone) => ({ ...stone }));`,
+);
+rendererCore = rendererCore.replaceAll("d.flatMap", "stoneDefinitions.flatMap");
+rendererCore = rendererCore.replaceAll("d.some", "stoneDefinitions.some");
+
+const rendererReturn = "return {\n    fishVertices: q,";
+rendererCore = rendererCore.replace(
+  rendererReturn,
+  `return {
+    fishVertices: q,
+    dynamicPebbleCapacity: ${dynamicPebbleCapacity},
+    setDynamicPebbles: function (pebbles) {
+      const width = X?.width ?? 1;
+      const height = X?.height ?? 1;
+      const unit = X?.unit ?? width / 540;
+      for (let index = 0; index < ${dynamicPebbleCapacity}; index++) {
+        const target = stoneDefinitions[fixedStoneCount + index];
+        const pebble = pebbles[index];
+        if (!pebble || pebble.state === "airborne") {
+          Object.assign(target, { x: -10, y: -10, length: 1, width: 1, height: 1 });
+          continue;
+        }
+        const baseSize = Math.max(1, pebble.size / Math.max(unit, 0.0001));
+        Object.assign(target, {
+          x: pebble.x / width,
+          y: pebble.y / height,
+          length: baseSize,
+          width: baseSize * (0.72 + 0.12 * pebble.seed),
+          height: baseSize * (0.38 + 0.12 * (1 - pebble.seed)),
+          angle: pebble.angle,
+          seed: pebble.seed,
+          kind: pebble.kind,
+        });
+      }
+      if (X) et([[X.floor, 0], [X.relief, 1]]);
+    },`,
+);
+if (!rendererCore.includes(`dynamicPebbleCapacity: ${dynamicPebbleCapacity}`)) {
+  throw new Error("Could not inject the dynamic pebble renderer extension.");
+}
+
 let simulationFactory = source.slice(simulationStart, simulationEnd);
 simulationFactory = simulationFactory.replace(
   "function (e, t) {",

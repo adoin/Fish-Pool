@@ -85,6 +85,138 @@ let s = 2 * Math.PI,
       seed: 0.47,
       kind: 1,
     },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.076923,
+      kind: 0,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.153846,
+      kind: 1,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.230769,
+      kind: 2,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.307692,
+      kind: 0,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.384615,
+      kind: 1,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.461538,
+      kind: 2,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.538462,
+      kind: 0,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.615385,
+      kind: 1,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.692308,
+      kind: 2,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.769231,
+      kind: 0,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.846154,
+      kind: 1,
+      dynamic: true,
+    },
+    {
+      x: -10,
+      y: -10,
+      length: 1,
+      width: 1,
+      height: 1,
+      angle: 0,
+      seed: 0.923077,
+      kind: 2,
+      dynamic: true,
+    },
   ],
   h = [
     {
@@ -1096,6 +1228,8 @@ function T(e, t) {
       powerPreference: "high-performance",
     });
   if (!m || !m.getExtension("EXT_color_buffer_float")) return null;
+  const fixedStoneCount = 3;
+  const stoneDefinitions = d.map((stone) => ({ ...stone }));
   let x = [];
   function z(e, t, a = []) {
     let i = m.createProgram();
@@ -1287,10 +1421,15 @@ function T(e, t) {
       ((t = a / 540),
       {
         placement: new Float32Array(
-          d.flatMap((e) => [e.x * a, e.y * i, e.angle, e.seed]),
+          stoneDefinitions.flatMap((e) => [e.x * a, e.y * i, e.angle, e.seed]),
         ),
         size: new Float32Array(
-          d.flatMap((e) => [e.length * t, e.width * t, e.height * t, e.kind]),
+          stoneDefinitions.flatMap((e) => [
+            e.length * t,
+            e.width * t,
+            e.height * t,
+            e.kind,
+          ]),
         ),
       });
     for (let [t, i] of (m.uniform4fv(o.u("u_stones[0]"), s.placement),
@@ -1303,6 +1442,42 @@ function T(e, t) {
   }
   return {
     fishVertices: q,
+    dynamicPebbleCapacity: 12,
+    setDynamicPebbles: function (pebbles) {
+      const width = X?.width ?? 1;
+      const height = X?.height ?? 1;
+      const unit = X?.unit ?? width / 540;
+      for (let index = 0; index < 12; index++) {
+        const target = stoneDefinitions[fixedStoneCount + index];
+        const pebble = pebbles[index];
+        if (!pebble || pebble.state === "airborne") {
+          Object.assign(target, {
+            x: -10,
+            y: -10,
+            length: 1,
+            width: 1,
+            height: 1,
+          });
+          continue;
+        }
+        const baseSize = Math.max(1, pebble.size / Math.max(unit, 0.0001));
+        Object.assign(target, {
+          x: pebble.x / width,
+          y: pebble.y / height,
+          length: baseSize,
+          width: baseSize * (0.72 + 0.12 * pebble.seed),
+          height: baseSize * (0.38 + 0.12 * (1 - pebble.seed)),
+          angle: pebble.angle,
+          seed: pebble.seed,
+          kind: pebble.kind,
+        });
+      }
+      if (X)
+        et([
+          [X.floor, 0],
+          [X.relief, 1],
+        ]);
+    },
     resize: function (t, a, i) {
       let n,
         s,
@@ -1390,7 +1565,7 @@ function T(e, t) {
                     (s.some(
                       (n) => Math.hypot((n.x - i) * e, (n.y - o) * t) < 60 * a,
                     ) ||
-                      d.some(
+                      stoneDefinitions.some(
                         (n) =>
                           Math.hypot((n.x - i) * e, (n.y - o) * t) <
                           (n.length + 25) * a,

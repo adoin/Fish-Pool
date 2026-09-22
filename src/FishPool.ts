@@ -1,7 +1,15 @@
 import { createFish, hitTestFish, scareFish, updateFish, type FishState, type Point } from "./fish";
 import { createOriginalFishSimulation, createOriginalRenderer } from "./original-engine";
 import { CanvasPondRenderer } from "./renderer";
-import type { FishPoolOptions, FishPoolStats, FishPoolTarget, RippleOptions } from "./types";
+import type {
+  FishPoolOptions,
+  FishPoolStats,
+  FishPoolTarget,
+  PebbleDropOptions,
+  PebbleSnapshot,
+  PebbleState,
+  RippleOptions,
+} from "./types";
 
 const DEFAULT_ARIA_LABEL =
   "Interactive koi pond. Tap the water to make ripples, or tap a fish to scare it.";
@@ -18,6 +26,8 @@ interface ResolvedOptions {
 
 interface OriginalRenderer {
   fishVertices: Float32Array;
+  dynamicPebbleCapacity: number;
+  setDynamicPebbles(pebbles: readonly PebbleInternal[]): void;
   resize(width: number, height: number, pixelRatio: number): void;
   drop(x: number, y: number, radius: number, strength: number): void;
   splash(x: number, y: number, radius: number, strength: number): boolean;
@@ -40,6 +50,21 @@ interface OriginalSimulation {
   scare(fish: unknown, x: number, y: number): void;
   disturb(x: number, y: number, radius: number, strength: number): void;
   resize(width: number, height: number): void;
+}
+
+interface PebbleInternal {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  targetSize: number;
+  angle: number;
+  seed: number;
+  kind: number;
+  progress: number;
+  state: PebbleState;
+  startX: number;
+  startY: number;
 }
 
 function resolveTarget(target: FishPoolTarget): HTMLElement | HTMLCanvasElement {
@@ -94,6 +119,11 @@ export class FishPool {
   private fastRatio = 0;
   private slowRatio = 0;
   private adaptationLocked = false;
+  private readonly pebbles: PebbleInternal[] = [];
+  private nextPebbleId = 1;
+  private lastPebbleDropAt = -Infinity;
+  private overlayCanvas: HTMLCanvasElement | null = null;
+  private overlayContext: CanvasRenderingContext2D | null = null;
 
   constructor(target: FishPoolTarget, options: FishPoolOptions = {}) {
     if (typeof window === "undefined" || typeof document === "undefined") {
@@ -110,6 +140,7 @@ export class FishPool {
 
     if (this.ownsCanvas) this.element.append(this.canvas);
     this.prepareCanvas();
+    this.setupOverlay();
     const rect = this.canvas.getBoundingClientRect();
     this.width = Math.max(1, rect.width);
     this.height = Math.max(1, rect.height);
@@ -147,6 +178,76 @@ export class FishPool {
       this.fallbackRenderer?.ripple(x, y, radius, strength);
     }
     this.wakeForInteraction();
+  }
+
+  /** Reproduce a direct water tap: strong splash plus nearby-fish avoidance. */
+  disturbWater(x: number, y: number): void {
+    if (this.destroyed) return;
+    if (this.originalRenderer && this.originalSimulation) {
+      this.originalRenderer.splash(x, y, 9, 2.6);
+      this.originalRenderer.drop(x, y, 3, 0.5);
+      this.originalSimulation.disturb(x, y, 0.3 * this.width, 0.45);
+    } else {
+      this.fallbackRenderer?.ripple(x, y, 34, 1.6);
+    }
+    this.wakeForInteraction();
+  }
+
+  /** Drop a persistent small pebble, choosing the clearest pond area by default. */
+  dropPebble(options: PebbleDropOptions = {}): PebbleSnapshot {
+    const now = performance.now();
+    const latestPebble = this.pebbles[this.pebbles.length - 1];
+    if (latestPebble && now - this.lastPebbleDropAt < 1000) {
+      return this.snapshotPebble(latestPebble);
+    }
+    const activePebble = this.pebbles.find((pebble) => pebble.state === "airborne");
+    if (activePebble) return this.snapshotPebble(activePebble);
+    this.lastPebbleDropAt = now;
+    const capacity = this.originalRenderer?.dynamicPebbleCapacity ?? 12;
+    if (this.pebbles.length >= capacity) this.pebbles.shift();
+
+    const point =
+      Number.isFinite(options.x) && Number.isFinite(options.y)
+        ? {
+            x: Math.min(this.width - 12, Math.max(12, options.x ?? this.width / 2)),
+            y: Math.min(this.height - 12, Math.max(12, options.y ?? this.height / 2)),
+          }
+        : this.findFreePebblePoint();
+    const seed = Math.random();
+    const targetSize = Math.min(11, Math.max(5, options.size ?? 6 + seed * 3.5));
+    const startX = Math.min(
+      this.width - 10,
+      Math.max(10, point.x + (Math.random() - 0.5) * this.width * 0.32),
+    );
+    const startY = Math.max(8, point.y - (90 + Math.random() * Math.min(110, this.height * 0.34)));
+    const pebble: PebbleInternal = {
+      id: this.nextPebbleId++,
+      x: point.x,
+      y: point.y,
+      size: 0,
+      targetSize,
+      angle: (Math.random() - 0.5) * Math.PI,
+      seed,
+      kind: Math.floor(Math.random() * 3),
+      progress: 0,
+      state: "airborne",
+      startX,
+      startY,
+    };
+    this.pebbles.push(pebble);
+    this.syncPebbles();
+    this.wakeForInteraction();
+    return this.snapshotPebble(pebble);
+  }
+
+  getPebbles(): PebbleSnapshot[] {
+    return this.pebbles.map((pebble) => this.snapshotPebble(pebble));
+  }
+
+  clearPebbles(): void {
+    this.pebbles.length = 0;
+    this.syncPebbles();
+    this.drawPebbleOverlay();
   }
 
   /** Run the original centerline hit test and flee response. */
@@ -191,12 +292,28 @@ export class FishPool {
     const rect = this.canvas.getBoundingClientRect();
     const nextWidth = Math.max(1, rect.width);
     const nextHeight = Math.max(1, rect.height);
+    if (this.width > 1 && this.height > 1 && (nextWidth !== this.width || nextHeight !== this.height)) {
+      const scaleX = nextWidth / this.width;
+      const scaleY = nextHeight / this.height;
+      for (const pebble of this.pebbles) {
+        pebble.x *= scaleX;
+        pebble.y *= scaleY;
+        pebble.startX *= scaleX;
+        pebble.startY *= scaleY;
+      }
+    }
     this.originalSimulation?.resize(nextWidth, nextHeight);
     this.width = nextWidth;
     this.height = nextHeight;
     const ratio = Math.min(this.renderPixelRatioCap, window.devicePixelRatio || 1);
     this.originalRenderer?.resize(this.width, this.height, ratio);
     this.fallbackRenderer?.resize(this.width, this.height, ratio);
+    if (this.overlayCanvas && this.overlayContext) {
+      this.overlayCanvas.width = Math.max(1, Math.round(this.width * ratio));
+      this.overlayCanvas.height = Math.max(1, Math.round(this.height * ratio));
+      this.overlayContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+    this.syncPebbles();
     this.requestFrame();
   }
 
@@ -221,6 +338,7 @@ export class FishPool {
     this.motionQuery.removeEventListener("change", this.handleMotionPreference);
     this.originalRenderer?.dispose();
     this.fallbackRenderer?.destroy();
+    this.overlayCanvas?.remove();
     if (this.ownsCanvas) this.canvas.remove();
   }
 
@@ -261,6 +379,28 @@ export class FishPool {
     this.canvas.style.height = "100%";
     this.canvas.style.touchAction = this.options.interactive ? "pan-y" : "auto";
     this.canvas.style.userSelect = "none";
+    this.canvas.style.position = "relative";
+    this.canvas.style.zIndex = "1";
+  }
+
+  private setupOverlay(): void {
+    const host = this.canvas.parentElement;
+    if (!host) return;
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    const overlay = document.createElement("canvas");
+    overlay.setAttribute("aria-hidden", "true");
+    overlay.style.position = "absolute";
+    overlay.style.inset = "0";
+    overlay.style.zIndex = "2";
+    overlay.style.display = "block";
+    overlay.style.width = "100%";
+    overlay.style.height = "100%";
+    overlay.style.pointerEvents = "none";
+    const context = overlay.getContext("2d");
+    if (!context) return;
+    host.append(overlay);
+    this.overlayCanvas = overlay;
+    this.overlayContext = context;
   }
 
   private bindObservers(): void {
@@ -343,6 +483,187 @@ export class FishPool {
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
+  private findFreePebblePoint(): Point {
+    const unit = this.width / 540;
+    const obstacles = [
+      { x: 0.77 * this.width, y: 0.30 * this.height, radius: 55 * unit },
+      { x: 0.85 * this.width, y: 0.50 * this.height, radius: 34 * unit },
+      { x: 0.36 * this.width, y: 0.66 * this.height, radius: 42 * unit },
+      ...this.pebbles.map((pebble) => ({
+        x: pebble.x,
+        y: pebble.y,
+        radius: pebble.targetSize * 2.4,
+      })),
+    ];
+    let best = { x: this.width * 0.5, y: this.height * 0.5 };
+    let bestScore = -Infinity;
+
+    for (let index = 0; index < 48; index += 1) {
+      const candidate = {
+        x: this.width * (0.14 + Math.random() * 0.72),
+        y: this.height * (0.14 + Math.random() * 0.72),
+      };
+      const edgeClearance = Math.min(
+        candidate.x,
+        this.width - candidate.x,
+        candidate.y,
+        this.height - candidate.y,
+      );
+      let score = edgeClearance;
+      for (const obstacle of obstacles) {
+        score = Math.min(
+          score,
+          Math.hypot(candidate.x - obstacle.x, candidate.y - obstacle.y) - obstacle.radius,
+        );
+      }
+      if (this.originalSimulation?.hitTest(candidate.x, candidate.y)) score -= this.width;
+      if (score > bestScore) {
+        bestScore = score;
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
+  private syncPebbles(): void {
+    this.originalRenderer?.setDynamicPebbles(this.pebbles);
+    this.fallbackRenderer?.setPebbles(this.pebbles);
+  }
+
+  private updatePebbles(dt: number): void {
+    let dirty = false;
+    for (const pebble of this.pebbles) {
+      if (pebble.state === "settled") continue;
+      if (pebble.state === "airborne") {
+        pebble.progress = Math.min(1, pebble.progress + dt / 1.15);
+        if (pebble.progress >= 1) {
+          pebble.state = "sinking";
+          pebble.progress = 0;
+          pebble.size = pebble.targetSize * 0.24;
+          this.disturbWater(pebble.x, pebble.y);
+          dirty = true;
+        }
+        continue;
+      }
+
+      pebble.progress = Math.min(1, pebble.progress + dt / 2.0);
+      const eased = 1 - (1 - pebble.progress) ** 3;
+      pebble.size = pebble.targetSize * (0.24 + 0.76 * eased);
+      if (pebble.progress >= 1) {
+        pebble.size = pebble.targetSize;
+        pebble.state = "settled";
+      }
+      dirty = true;
+    }
+    if (dirty) this.syncPebbles();
+    this.drawPebbleOverlay();
+  }
+
+  private drawPebbleOverlay(): void {
+    const context = this.overlayContext;
+    if (!context) return;
+    context.clearRect(0, 0, this.width, this.height);
+
+    for (const pebble of this.pebbles) {
+      if (pebble.state === "settled") continue;
+      if (pebble.state === "airborne") {
+        const p = pebble.progress;
+        const inverse = 1 - p;
+        const controlX = (pebble.startX + pebble.x) * 0.5;
+        const controlY = Math.min(pebble.startY, pebble.y) - Math.min(58, this.height * 0.12);
+        const currentX =
+          inverse * inverse * pebble.startX + 2 * inverse * p * controlX + p * p * pebble.x;
+        const currentY =
+          inverse * inverse * pebble.startY + 2 * inverse * p * controlY + p * p * pebble.y;
+
+        context.save();
+        context.strokeStyle = `rgba(205, 218, 207, ${0.24 + p * 0.28})`;
+        context.lineWidth = 1.5;
+        context.setLineDash([4, 4]);
+        context.beginPath();
+        context.moveTo(pebble.startX, pebble.startY);
+        context.quadraticCurveTo(controlX, controlY, currentX, currentY);
+        context.stroke();
+        context.setLineDash([]);
+        context.fillStyle = `rgba(10, 24, 16, ${0.08 + p * 0.22})`;
+        context.beginPath();
+        context.ellipse(
+          pebble.x,
+          pebble.y,
+          pebble.targetSize * (0.45 + p * 0.55),
+          pebble.targetSize * (0.16 + p * 0.16),
+          pebble.angle,
+          0,
+          Math.PI * 2,
+        );
+        context.fill();
+        context.restore();
+
+        this.drawOverlayPebble(currentX, currentY, pebble, 1.35 - p * 0.35, 1);
+        continue;
+      }
+
+      const opacity = 1 - pebble.progress * 0.8;
+      const sinkScale = 1 - pebble.progress * 0.42;
+      this.drawOverlayPebble(
+        pebble.x,
+        pebble.y + pebble.progress * 12,
+        pebble,
+        sinkScale,
+        opacity,
+      );
+    }
+  }
+
+  private drawOverlayPebble(
+    x: number,
+    y: number,
+    pebble: PebbleInternal,
+    scale: number,
+    opacity: number,
+  ): void {
+    const context = this.overlayContext;
+    if (!context || opacity <= 0) return;
+    const radius = pebble.targetSize * scale;
+    context.save();
+    context.translate(x, y);
+    context.rotate(pebble.angle);
+    context.globalAlpha = opacity;
+    context.shadowColor = "rgba(6, 15, 10, 0.38)";
+    context.shadowBlur = radius * 0.7;
+    context.shadowOffsetX = radius * 0.24;
+    context.shadowOffsetY = radius * 0.36;
+    const gradient = context.createRadialGradient(
+      -radius * 0.28,
+      -radius * 0.32,
+      radius * 0.08,
+      0,
+      0,
+      radius,
+    );
+    const hue = 55 + pebble.kind * 9;
+    gradient.addColorStop(0, `hsl(${hue} 13% ${55 + pebble.seed * 8}%)`);
+    gradient.addColorStop(0.58, `hsl(${hue} 12% ${34 + pebble.seed * 7}%)`);
+    gradient.addColorStop(1, `hsl(${hue} 14% ${19 + pebble.seed * 5}%)`);
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.ellipse(0, 0, radius, radius * (0.70 + pebble.seed * 0.10), 0, 0, Math.PI * 2);
+    context.fill();
+    context.restore();
+  }
+
+  private snapshotPebble(pebble: PebbleInternal): PebbleSnapshot {
+    return {
+      id: pebble.id,
+      x: pebble.x,
+      y: pebble.y,
+      size: pebble.size,
+      targetSize: pebble.targetSize,
+      progress: pebble.progress,
+      state: pebble.state,
+    };
+  }
+
   private wakeForInteraction(): void {
     this.activeUntil = performance.now() + 4000;
     this.requestFrame();
@@ -372,6 +693,7 @@ export class FishPool {
     if (this.lastFrame) this.sampleAdaptiveResolution(timestamp - this.lastFrame);
     this.lastFrame = timestamp;
     this.elapsed += dt;
+    this.updatePebbles(dt);
 
     if (this.originalSimulation && this.originalRenderer) {
       this.originalSimulation.update(dt, this.elapsed);

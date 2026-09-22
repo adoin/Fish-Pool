@@ -29,6 +29,7 @@ const pond = new FishPool("#pond", {
 });
 
 pond.addRipple(360, 240, { radius: 36, strength: 1.2 });
+pond.dropPebble(); // chooses a free area and adds a persistent small stone
 
 // When the view is permanently removed:
 pond.destroy();
@@ -72,8 +73,12 @@ The package also ships an IIFE build. It exposes `FishPoolWebGL` on `window`:
 
 - `start()` and `stop()` control the animation loop.
 - `addRipple(x, y, options?)` injects a water impulse in CSS-pixel coordinates.
+- `disturbWater(x, y)` runs the original strong water-tap effect and scares nearby fish.
+- `dropPebble(options?)` chooses a free area by default, creates a small `airborne → sinking → settled` pebble, triggers the full water disturbance on impact, and returns its state.
+- `getPebbles()` returns immutable snapshots of dynamic pebble positions and states.
+- `clearPebbles()` removes only dynamically added pebbles; the three original stones remain unchanged.
 - `scareAt(x, y)` startles a fish under the given point and returns whether one was hit.
-- `setFishCount(count)` replaces the school with 1–8 seeded fish.
+- `setFishCount(count)` replaces the school with 1–4 original koi.
 - `resize()` manually refreshes sizing. A `ResizeObserver` already calls it automatically.
 - `getStats()` returns renderer, size, density, fish count, and running state.
 - `destroy()` releases observers, listeners, WebGL resources, and the owned canvas.
