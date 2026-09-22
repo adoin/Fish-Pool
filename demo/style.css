@@ -1,0 +1,144 @@
+:root {
+  color: #24312b;
+  background: #f5f4f0;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  padding: 64px 24px;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.95), transparent 38rem),
+    #f5f4f0;
+}
+
+main {
+  width: min(660px, 100%);
+}
+
+header {
+  margin: 0 auto 28px;
+  text-align: center;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: #6d7c74;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+h1 {
+  margin: 0;
+  color: #1e2b25;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(32px, 6vw, 56px);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.03;
+}
+
+.lede {
+  margin: 14px 0 0;
+  color: #68756f;
+  font-size: 15px;
+}
+
+.pond-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: transparent;
+}
+
+#pond {
+  position: absolute;
+  inset: 0;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  color: #6b7972;
+  font-size: 12px;
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.controls input {
+  width: 100px;
+  accent-color: #315f49;
+}
+
+.controls button {
+  appearance: none;
+  border: 1px solid rgba(37, 69, 54, 0.17);
+  border-radius: 999px;
+  padding: 8px 13px;
+  color: #33483e;
+  background: rgba(255, 255, 255, 0.64);
+  box-shadow: 0 2px 7px rgba(40, 61, 51, 0.08);
+  cursor: pointer;
+  font: inherit;
+}
+
+.controls button:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.controls button:focus-visible,
+.controls input:focus-visible {
+  outline: 2px solid #2d6b4c;
+  outline-offset: 3px;
+}
+
+.controls p {
+  margin: 0 0 0 auto;
+}
+
+@media (max-width: 620px) {
+  body {
+    padding: 36px 14px;
+  }
+
+  header {
+    text-align: left;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+  }
+
+  .controls p {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .controls button {
+    transition: none;
+  }
+}

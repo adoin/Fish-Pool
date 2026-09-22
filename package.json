@@ -1,0 +1,58 @@
+{
+  "name": "fish-pool-webgl",
+  "version": "0.1.0",
+  "description": "A dependency-free interactive WebGL2 koi pond for the web.",
+  "keywords": [
+    "webgl",
+    "webgl2",
+    "koi",
+    "pond",
+    "water",
+    "ripple",
+    "canvas",
+    "animation"
+  ],
+  "license": "MIT",
+  "author": "",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "browser": "./dist/fish-pool.min.js",
+  "unpkg": "./dist/fish-pool.min.js",
+  "jsdelivr": "./dist/fish-pool.min.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./browser": "./dist/fish-pool.min.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:demo": "node scripts/build-demo.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "dev": "node scripts/dev.mjs",
+    "extract:reference": "node scripts/extract-reference.mjs && npx prettier --write reference/original-pond.compiled.js reference/original-pond.metadata.json",
+    "generate:engine": "node scripts/generate-original-engine.mjs && npx prettier --write src/original-engine.ts",
+    "prepublishOnly": "npm run check && npm run build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

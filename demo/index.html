@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f4f0" />
+    <title>Fish Pool — WebGL2 koi pond</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">FISH POOL / WEBGL2</p>
+        <h1>A small pond with a mind of its own.</h1>
+        <p class="lede">Tap the water, drag a wake, or startle a koi.</p>
+      </header>
+
+      <section class="pond-frame" aria-label="Fish Pool demo">
+        <div id="pond"></div>
+      </section>
+
+      <section class="controls" aria-label="Demo controls">
+        <label>
+          <span>Fish</span>
+          <input id="fish-count" type="range" min="1" max="4" value="4" />
+        </label>
+        <button id="ripple" type="button">Drop a pebble</button>
+        <p><span id="renderer">—</span> · zero runtime dependencies</p>
+      </section>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

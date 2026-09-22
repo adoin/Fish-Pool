@@ -1,0 +1,26 @@
+node_modules/
+dist/
+demo-dist/
+coverage/
+.cache/
+.turbo/
+.eslintcache
+
+# Local environment and registry credentials
+.env
+.env.*
+!.env.example
+.npmrc
+
+# Packed release artifacts
+*.tgz
+
+# Local visual QA captures
+design-qa.md
+source-*.png
+implementation-*.png
+qa-comparison-*.png
+
+.DS_Store
+Thumbs.db
+*.log

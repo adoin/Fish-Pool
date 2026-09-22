@@ -1,0 +1,9 @@
+{
+  "sourceUrl": "https://www.shwn.design/_next/static/chunks/0bzbe50pjv2-3.js",
+  "retrievedAt": "2026-09-22T01:13:06.177Z",
+  "fullChunkBytes": 102294,
+  "fullChunkSha256": "09dacaeb751fce6b723d0b4b2b7a01052c47c68aeb960ca8d9a66279d235fce1",
+  "extractedModule": 49689,
+  "extractedBytes": 61810,
+  "networkDependencyFinding": "No pond-specific data API or media request exists. Browser capture only observed Next.js RSC navigation prefetches and an unrelated CARTO tiles metadata request used elsewhere on the page."
+}
