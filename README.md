@@ -4,6 +4,8 @@ A dependency-free interactive koi pond for the web. The water simulation, proced
 
 The package does **not** depend on React, Next.js, Three.js, or a runtime framework. A lightweight Canvas 2D renderer is included as a fallback.
 
+**Live demo:** <https://adoin.github.io/Fish-Pool/>
+
 ## Install
 
 ```bash
