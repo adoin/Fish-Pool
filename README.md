@@ -129,6 +129,12 @@ For an auditable comparison, the repository also includes:
 - `reference/original-pond-analysis.md` — readable identifier, render-pass, interaction, and network mappings.
 - `scripts/extract-reference.mjs` and `scripts/generate-original-engine.mjs` — reproducible extraction and framework-removal scripts.
 
+## Attribution
+
+This project recreates the interactive koi pond originally published at [shwn.design](https://www.shwn.design/).
+
+Project source: [github.com/adoin/Fish-Pool](https://github.com/adoin/Fish-Pool)
+
 ## Browser support
 
 Modern browsers with WebGL2 receive the full renderer. Browsers without WebGL2 or floating-point color-buffer support automatically use the Canvas 2D fallback.

@@ -118,6 +118,31 @@ h1 {
   margin: 0 0 0 auto;
 }
 
+.attribution {
+  margin-top: 18px;
+  color: #7a8580;
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.attribution a {
+  color: #3f5f50;
+  text-decoration-color: rgba(63, 95, 80, 0.32);
+  text-underline-offset: 3px;
+}
+
+.attribution a:hover {
+  color: #1f4834;
+  text-decoration-color: currentColor;
+}
+
+.attribution a:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #2d6b4c;
+  outline-offset: 3px;
+}
+
 @media (max-width: 620px) {
   body {
     padding: 36px 14px;
@@ -134,6 +159,10 @@ h1 {
   .controls p {
     width: 100%;
     margin-left: 0;
+  }
+
+  .attribution {
+    text-align: left;
   }
 }
 
