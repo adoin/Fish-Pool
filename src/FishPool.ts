@@ -124,6 +124,7 @@ export class FishPool {
   private lastPebbleDropAt = -Infinity;
   private overlayCanvas: HTMLCanvasElement | null = null;
   private overlayContext: CanvasRenderingContext2D | null = null;
+  private readonly overlayPadding = 120;
 
   constructor(target: FishPoolTarget, options: FishPoolOptions = {}) {
     if (typeof window === "undefined" || typeof document === "undefined") {
@@ -215,11 +216,19 @@ export class FishPool {
         : this.findFreePebblePoint();
     const seed = Math.random();
     const targetSize = Math.min(11, Math.max(5, options.size ?? 6 + seed * 3.5));
-    const startX = Math.min(
-      this.width - 10,
-      Math.max(10, point.x + (Math.random() - 0.5) * this.width * 0.32),
-    );
-    const startY = Math.max(8, point.y - (90 + Math.random() * Math.min(110, this.height * 0.34)));
+    const entryEdge = Math.floor(Math.random() * 3);
+    let startX: number;
+    let startY: number;
+    if (entryEdge === 0) {
+      startX = this.width * (0.08 + Math.random() * 0.84);
+      startY = -(48 + Math.random() * 58);
+    } else if (entryEdge === 1) {
+      startX = -(48 + Math.random() * 58);
+      startY = this.height * (0.08 + Math.random() * 0.72);
+    } else {
+      startX = this.width + 48 + Math.random() * 58;
+      startY = this.height * (0.08 + Math.random() * 0.72);
+    }
     const pebble: PebbleInternal = {
       id: this.nextPebbleId++,
       x: point.x,
@@ -309,9 +318,22 @@ export class FishPool {
     this.originalRenderer?.resize(this.width, this.height, ratio);
     this.fallbackRenderer?.resize(this.width, this.height, ratio);
     if (this.overlayCanvas && this.overlayContext) {
-      this.overlayCanvas.width = Math.max(1, Math.round(this.width * ratio));
-      this.overlayCanvas.height = Math.max(1, Math.round(this.height * ratio));
-      this.overlayContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+      this.overlayCanvas.width = Math.max(
+        1,
+        Math.round((this.width + this.overlayPadding * 2) * ratio),
+      );
+      this.overlayCanvas.height = Math.max(
+        1,
+        Math.round((this.height + this.overlayPadding * 2) * ratio),
+      );
+      this.overlayContext.setTransform(
+        ratio,
+        0,
+        0,
+        ratio,
+        this.overlayPadding * ratio,
+        this.overlayPadding * ratio,
+      );
     }
     this.syncPebbles();
     this.requestFrame();
@@ -390,11 +412,12 @@ export class FishPool {
     const overlay = document.createElement("canvas");
     overlay.setAttribute("aria-hidden", "true");
     overlay.style.position = "absolute";
-    overlay.style.inset = "0";
+    overlay.style.left = `${-this.overlayPadding}px`;
+    overlay.style.top = `${-this.overlayPadding}px`;
     overlay.style.zIndex = "2";
     overlay.style.display = "block";
-    overlay.style.width = "100%";
-    overlay.style.height = "100%";
+    overlay.style.width = `calc(100% + ${this.overlayPadding * 2}px)`;
+    overlay.style.height = `calc(100% + ${this.overlayPadding * 2}px)`;
     overlay.style.pointerEvents = "none";
     const context = overlay.getContext("2d");
     if (!context) return;
@@ -562,7 +585,12 @@ export class FishPool {
   private drawPebbleOverlay(): void {
     const context = this.overlayContext;
     if (!context) return;
-    context.clearRect(0, 0, this.width, this.height);
+    context.clearRect(
+      -this.overlayPadding,
+      -this.overlayPadding,
+      this.width + this.overlayPadding * 2,
+      this.height + this.overlayPadding * 2,
+    );
 
     for (const pebble of this.pebbles) {
       if (pebble.state === "settled") continue;

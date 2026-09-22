@@ -74,7 +74,7 @@ The package also ships an IIFE build. It exposes `FishPoolWebGL` on `window`:
 - `start()` and `stop()` control the animation loop.
 - `addRipple(x, y, options?)` injects a water impulse in CSS-pixel coordinates.
 - `disturbWater(x, y)` runs the original strong water-tap effect and scares nearby fish.
-- `dropPebble(options?)` chooses a free area by default, creates a small `airborne → sinking → settled` pebble, triggers the full water disturbance on impact, and returns its state.
+- `dropPebble(options?)` chooses a free area by default, launches a small pebble from outside the pond through `airborne → sinking → settled`, triggers the full water disturbance on impact, and returns its state.
 - `getPebbles()` returns immutable snapshots of dynamic pebble positions and states.
 - `clearPebbles()` removes only dynamically added pebbles; the three original stones remain unchanged.
 - `scareAt(x, y)` startles a fish under the given point and returns whether one was hit.
