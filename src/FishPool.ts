@@ -605,14 +605,6 @@ export class FishPool {
           inverse * inverse * pebble.startY + 2 * inverse * p * controlY + p * p * pebble.y;
 
         context.save();
-        context.strokeStyle = `rgba(205, 218, 207, ${0.24 + p * 0.28})`;
-        context.lineWidth = 1.5;
-        context.setLineDash([4, 4]);
-        context.beginPath();
-        context.moveTo(pebble.startX, pebble.startY);
-        context.quadraticCurveTo(controlX, controlY, currentX, currentY);
-        context.stroke();
-        context.setLineDash([]);
         context.fillStyle = `rgba(10, 24, 16, ${0.08 + p * 0.22})`;
         context.beginPath();
         context.ellipse(
